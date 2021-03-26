@@ -33,9 +33,12 @@ bump_version () {
   git checkout "${BUMP_BRANCH}"	
 
   echo "Updating project version to ${NEXT_VERSION}"	
-  echo "${VERSION}" > VERSION 
-  COMMIT_MSG="[release] Bump to ${NEXT_VERSION} in ${BUMP_BRANCH}"	
-  git commit -asm "${COMMIT_MSG}"	
+  echo "${NEXT_VERSION}" > VERSION
+  if [[ ! -z $(git status -s) ]]; then # dirty
+    git add VERSION
+    COMMIT_MSG="[release] Bump to ${NEXT_VERSION} in ${BUMP_BRANCH}"
+    git commit -asm "${COMMIT_MSG}"
+  fi
   git pull origin "${BUMP_BRANCH}"	
 
   set +e
@@ -64,11 +67,7 @@ usage ()
 if [[ ! ${VERSION} ]] || [[ ! ${DWO_VERSION} ]]; then	
   usage	
   exit 1	
-fi	
-
-if [[ ${VERSION} ]]; then
 fi
-
 
 # derive bugfix branch from version
 BRANCH=${VERSION#v}	
@@ -110,6 +109,7 @@ set -e
 
 # change VERSION file	
 echo "${VERSION}" > VERSION
+git add VERSION 
 
 export IMG="quay.io/che-incubator/devworkspace-che-operator:${VERSION}"
 
@@ -122,10 +122,13 @@ make docker-build
 make docker-push
 
 # tag the release	
-git tag "${VERSION}"	
-git push origin "${VERSION}"	
-COMMIT_MSG="[release] Release ${VERSION}"	
-git commit -asm "${COMMIT_MSG}"	
+if [[ ! -z $(git status -s) ]]; then # dirty
+  COMMIT_MSG="[release] Release ${VERSION}"
+  git add VERSION
+  git commit -asm "${COMMIT_MSG}"
+  git tag "${VERSION}"
+  git push origin "${VERSION}"
+fi
 
 # now update ${BASEBRANCH} to the new snapshot version	
 git checkout "${BASEBRANCH}"	
